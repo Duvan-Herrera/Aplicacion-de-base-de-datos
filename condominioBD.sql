@@ -13,122 +13,128 @@ GO
 USE CondominioDB;
 GO
 
--- TABLAS 
 
+-- TABLAS
 CREATE TABLE TipoPropiedad (
     IdTipoPropiedad INT          IDENTITY(1,1) PRIMARY KEY,
     Descripcion     NVARCHAR(50) NOT NULL
 );
 
-CREATE TABLE Persona (
-    IdPersona     INT           IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE Contacto (
+    IdContacto    INT           IDENTITY(1,1) PRIMARY KEY,
     Cedula        NVARCHAR(20)  NOT NULL UNIQUE,
-    Nombre        NVARCHAR(100) NOT NULL,
-    Apellidos     NVARCHAR(100) NOT NULL,
+    Nombre        NVARCHAR(150) NOT NULL,
     Telefono      NVARCHAR(20)  NULL,
     Email         NVARCHAR(150) NULL,
-    Tipo          NVARCHAR(20)  NOT NULL  
+    EsPropietario BIT           NOT NULL DEFAULT 0,
+    EsResidente   BIT           NOT NULL DEFAULT 0,
+    PuedeReservar BIT           NOT NULL DEFAULT 0,
+    EsFactura     BIT           NOT NULL DEFAULT 0
 );
 
 CREATE TABLE Propiedad (
-    IdPropiedad        INT            IDENTITY(1,1) PRIMARY KEY,
-    Codigo             NVARCHAR(20)   NOT NULL UNIQUE,
-    IdTipoPropiedad    INT            NOT NULL REFERENCES TipoPropiedad(IdTipoPropiedad),
-    AreaM2             DECIMAL(10,2)  NOT NULL CHECK (AreaM2 > 0),
-    CantResidentes     INT            NOT NULL DEFAULT 0 CHECK (CantResidentes >= 0),
-    CuotaMantenimiento DECIMAL(10,2)  NOT NULL DEFAULT 0
+    IdPropiedad        INT           IDENTITY(1,1) PRIMARY KEY,
+    Codigo             NVARCHAR(20)  NOT NULL UNIQUE,
+    IdTipoPropiedad    INT           NOT NULL REFERENCES TipoPropiedad(IdTipoPropiedad),
+    AreaM2             DECIMAL(10,2) NOT NULL CHECK (AreaM2 > 0),
+    CuotaMantenimiento DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
-CREATE TABLE PropiedadPropietario (
-    IdPropiedadPropietario INT IDENTITY(1,1) PRIMARY KEY,
-    IdPropiedad            INT NOT NULL REFERENCES Propiedad(IdPropiedad),
-    IdPersona              INT NOT NULL REFERENCES Persona(IdPersona),
-    EsPrincipal            BIT NOT NULL DEFAULT 0,
-    UNIQUE (IdPropiedad, IdPersona)
+CREATE TABLE PropiedadContacto (
+    IdPropiedadContacto INT IDENTITY(1,1) PRIMARY KEY,
+    IdPropiedad         INT NOT NULL REFERENCES Propiedad(IdPropiedad),
+    IdContacto          INT NOT NULL REFERENCES Contacto(IdContacto),
+    UNIQUE (IdPropiedad, IdContacto)
 );
 
 CREATE TABLE AreaComun (
-    IdAreaComun     INT            IDENTITY(1,1) PRIMARY KEY,
-    Nombre          NVARCHAR(100)  NOT NULL,
-    CapacidadMaxima INT            NOT NULL CHECK (CapacidadMaxima > 0),
-    HoraApertura    TIME           NOT NULL,
-    HoraCierre      TIME           NOT NULL,
-    TarifaUso       DECIMAL(10,2)  NOT NULL DEFAULT 0
+    IdAreaComun     INT           IDENTITY(1,1) PRIMARY KEY,
+    Nombre          NVARCHAR(100) NOT NULL,
+    CapacidadMaxima INT           NOT NULL CHECK (CapacidadMaxima > 0),
+    HoraApertura    TIME          NOT NULL,
+    HoraCierre      TIME          NOT NULL
 );
 
 CREATE TABLE Reserva (
-    IdReserva      INT           IDENTITY(1,1) PRIMARY KEY,
-    IdAreaComun    INT           NOT NULL REFERENCES AreaComun(IdAreaComun),
-    IdPropiedad    INT           NOT NULL REFERENCES Propiedad(IdPropiedad),
-    IdPersona      INT           NOT NULL REFERENCES Persona(IdPersona),
-    FechaReserva   DATE          NOT NULL,
-    HoraInicio     TIME          NOT NULL,
-    HoraFin        TIME          NOT NULL CHECK (HoraFin > HoraInicio),
-    NumPersonas    INT           NOT NULL CHECK (NumPersonas > 0),
-    Estado         NVARCHAR(20)  NOT NULL DEFAULT 'Pendiente',
-    MotivoRechazo  NVARCHAR(200) NULL,
-    FechaCreacion  DATETIME      NOT NULL DEFAULT GETDATE()
+    IdReserva     INT           IDENTITY(1,1) PRIMARY KEY,
+    IdAreaComun   INT           NOT NULL REFERENCES AreaComun(IdAreaComun),
+    IdPropiedad   INT           NOT NULL REFERENCES Propiedad(IdPropiedad),
+    IdContacto    INT           NOT NULL REFERENCES Contacto(IdContacto),
+    FechaReserva  DATE          NOT NULL,
+    HoraInicio    TIME          NOT NULL,
+    HoraFin       TIME          NOT NULL ,
+    NumPersonas   INT           NOT NULL CHECK (NumPersonas > 0),
+    Estado        NVARCHAR(20)  NOT NULL DEFAULT 'Pendiente',
+    MotivoRechazo NVARCHAR(200) NULL,
+    CONSTRAINT CK_Reserva_Horario CHECK (HoraFin > HoraInicio)
 );
 
 CREATE TABLE CodigoAcceso (
-    IdCodigoAcceso   INT          IDENTITY(1,1) PRIMARY KEY,
-    IdPersona        INT          NOT NULL REFERENCES Persona(IdPersona),
-    Codigo           NVARCHAR(50) NOT NULL UNIQUE,
-    FechaVencimiento DATETIME     NOT NULL,
-    Activo           BIT          NOT NULL DEFAULT 1
+    IdCodigoAcceso   INT           IDENTITY(1,1) PRIMARY KEY,
+    IdContacto       INT           NOT NULL REFERENCES Contacto(IdContacto),
+    TipoUsuario      NVARCHAR(20)  NOT NULL,  -- Propietario, Residente, Invitado
+    Codigo           NVARCHAR(50)  NOT NULL UNIQUE,
+    FechaVencimiento DATETIME      NOT NULL,
+    Activo           BIT           NOT NULL DEFAULT 1
 );
 
-CREATE TABLE RegistroVisita (
-    IdVisita         INT           IDENTITY(1,1) PRIMARY KEY,
-    NombreVisitante  NVARCHAR(150) NOT NULL,
-    CedulaVisitante  NVARCHAR(20)  NULL,
-    IdPropiedad      INT           NOT NULL REFERENCES Propiedad(IdPropiedad),
-    IdCodigoAcceso   INT           NULL REFERENCES CodigoAcceso(IdCodigoAcceso),
-    FechaEntrada     DATETIME      NOT NULL DEFAULT GETDATE(),
-    FechaSalida      DATETIME      NULL
+CREATE TABLE RegistroAcceso (
+    IdAcceso        INT           IDENTITY(1,1) PRIMARY KEY,
+    IdCodigoAcceso  INT           NOT NULL REFERENCES CodigoAcceso(IdCodigoAcceso),
+    IdPropiedad     INT           NULL REFERENCES Propiedad(IdPropiedad),
+    NombreVisitante NVARCHAR(150) NOT NULL,
+    FechaIngreso    DATETIME      NOT NULL DEFAULT GETDATE(),
+    FechaSalida     DATETIME      NULL
 );
 GO
 
--- DATOS DE EJEMPLO 
-
+-- DATOS DE EJEMPLO
 INSERT INTO TipoPropiedad (Descripcion) VALUES
 ('Apartamento'), ('Casa'), ('Local Comercial');
 
-INSERT INTO Persona (Cedula, Nombre, Apellidos, Telefono, Email, Tipo) VALUES
-('111111111', 'Carlos',  'Mora Jiménez',    '8888-0001', 'carlos@mail.com',  'Propietario'),
-('222222222', 'María',   'Rodríguez Solís', '8888-0002', 'maria@mail.com',   'Propietario'),
-('333333333', 'José',    'Vargas Campos',   '8888-0003', 'jose@mail.com',    'Ambos'),
-('444444444', 'Laura',   'Quesada López',   '8888-0004', 'laura@mail.com',   'Residente'),
-('555555555', 'Andrés',  'Castro Pérez',    '7777-0001', 'andres@mail.com',  'Residente');
+INSERT INTO Contacto (Cedula, Nombre, EsPropietario, EsResidente, PuedeReservar, EsFactura) VALUES
+('111111111', 'Juan Lopez',      1, 0, 0, 1),  -- Prop1, Propietario, Factura
+('222222222', 'Vanesa Alfaro',   1, 0, 0, 0),  -- Prop1, Propietario
+('333333333', 'Luis Lopez',      0, 1, 1, 0),  -- Prop1, Residente, puede reservar
+('444444444', 'Pedro Lopez',     0, 1, 1, 0),  -- Prop1, Residente, puede reservar
+('555555555', 'Victor Perez',    1, 0, 0, 0),  -- Prop2, Propietario
+('666666666', 'Maria Aguilar',   1, 0, 0, 1),  -- Prop2, Propietario, Factura
+('777777777', 'Carlos Perez',    0, 1, 1, 0),  -- Prop2, Residente, puede reservar
+('888888888', 'Wendy Perez',     0, 1, 1, 0),  -- Prop2, Residente, puede reservar
+('999999999', 'Melissa Aguilar', 1, 0, 0, 1);  -- Prop3, Propietario, Factura
 
-INSERT INTO Propiedad (Codigo, IdTipoPropiedad, AreaM2, CantResidentes, CuotaMantenimiento) VALUES
-('A-101', 1,  80.00, 2, 41000),
-('A-102', 1,  95.00, 3, 47750),
-('B-101', 2, 120.00, 4, 59000),
-('B-102', 2, 200.00, 2, 95000);
+INSERT INTO Propiedad (Codigo, IdTipoPropiedad, AreaM2, CuotaMantenimiento) VALUES
+('A05B', 1, 250, 117500),
+('A07A', 1, 225, 106250),
+('A08A', 1, 185,  88250);
 
+INSERT INTO PropiedadContacto (IdPropiedad, IdContacto) VALUES
+(1,1),(1,2),(1,3),(1,4),
+(2,5),(2,6),(2,7),(2,8),
+(3,9);
 
-INSERT INTO PropiedadPropietario (IdPropiedad, IdPersona, EsPrincipal) VALUES
-(1, 1, 1),  -- A-101: Carlos (principal)
-(1, 2, 0),  -- A-101: María  (co-propietaria)
-(2, 2, 1),  -- A-102: María  (principal)
-(3, 3, 1),  -- B-101: José   (principal)
-(3, 1, 0),  -- B-101: Carlos (co-propietario)
-(4, 3, 1);  -- B-102: José   (principal)
+INSERT INTO AreaComun (Nombre, CapacidadMaxima, HoraApertura, HoraCierre) VALUES
+('Parrilla A05H',      20, '08:00', '22:00'),
+('Cancha Futbol A07L', 22, '06:00', '22:00'),
+('Salón Comunal',      50, '08:00', '22:00'),
+('Piscina',            30, '07:00', '20:00');
 
-INSERT INTO AreaComun (Nombre, CapacidadMaxima, HoraApertura, HoraCierre, TarifaUso) VALUES
-('Salón Comunal',   50, '08:00', '22:00', 15000),
-('Piscina',         30, '07:00', '20:00',  5000),
-('Cancha de Tenis',  4, '06:00', '21:00',  3000),
-('Gimnasio',        15, '05:00', '22:00',     0);
+INSERT INTO Reserva (IdAreaComun, IdPropiedad, IdContacto, FechaReserva, HoraInicio, HoraFin, NumPersonas, Estado) VALUES
+(1, 1, 3, '2026-06-05', '18:00', '21:00', 10, 'Confirmada'),  
+(2, 2, 8, '2026-06-07', '10:00', '12:00',  8, 'Confirmada'); 
+
+INSERT INTO CodigoAcceso (IdContacto, TipoUsuario, Codigo, FechaVencimiento) VALUES
+(3, 'Residente',   'CA-202606-0003-AB12CD', '2027-01-01'),
+(1, 'Propietario', 'CA-202606-0001-IJ56KL', '2027-01-01');
+
+INSERT INTO RegistroAcceso (IdCodigoAcceso, IdPropiedad, NombreVisitante, FechaIngreso, FechaSalida) VALUES
+(1, 1, 'Luis Lopez', '2026-06-05 18:00:00', '2026-06-05 21:05:00'),
+(2, 1, 'Juan Lopez', '2026-06-10 08:00:00', '2026-06-10 10:30:00');
 GO
 
--- ============================================================
 -- EJERCICIO 1: PROPIEDADES
--- ============================================================
 
--- Función: calcular cuota de mantenimiento
--- Fórmula: (AreaM2 x 450) + 5000
+-- Función: calcula cuota (AreaM2 x 450) + 5000
 CREATE OR ALTER FUNCTION dbo.fn_CuotaMantenimiento(@AreaM2 DECIMAL(10,2))
 RETURNS DECIMAL(10,2)
 AS
@@ -137,57 +143,47 @@ BEGIN
 END;
 GO
 
--- SP: Crear propiedad (sin INSERT directo, con validaciones)
+-- SP: Crear propiedad
 CREATE OR ALTER PROCEDURE dbo.sp_CrearPropiedad
-    @Codigo           NVARCHAR(20),
-    @IdTipoPropiedad  INT,
-    @AreaM2           DECIMAL(10,2),
-    @CantResidentes   INT,
-    @IdPropietario    INT,
-    @IdPropiedad      INT           OUTPUT,
-    @Mensaje          NVARCHAR(200) OUTPUT
+    @Codigo          NVARCHAR(20),
+    @IdTipoPropiedad INT,
+    @AreaM2          DECIMAL(10,2),
+    @IdContacto      INT,
+    @IdPropiedad     INT           OUTPUT,
+    @Mensaje         NVARCHAR(200) OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validar código
     IF NULLIF(LTRIM(@Codigo), '') IS NULL
     BEGIN SET @Mensaje = 'ERROR: El código es obligatorio.'; RETURN; END
 
-    -- Validar que no exista
     IF EXISTS (SELECT 1 FROM Propiedad WHERE Codigo = @Codigo)
     BEGIN SET @Mensaje = 'ERROR: Ya existe una propiedad con el código ' + @Codigo; RETURN; END
 
-    -- Validar área
     IF @AreaM2 IS NULL OR @AreaM2 <= 0
     BEGIN SET @Mensaje = 'ERROR: El área debe ser mayor a cero.'; RETURN; END
 
-    -- Validar residentes
-    IF @CantResidentes < 0
-    BEGIN SET @Mensaje = 'ERROR: La cantidad de residentes no puede ser negativa.'; RETURN; END
-
-    -- Validar tipo propiedad
     IF NOT EXISTS (SELECT 1 FROM TipoPropiedad WHERE IdTipoPropiedad = @IdTipoPropiedad)
     BEGIN SET @Mensaje = 'ERROR: El tipo de propiedad no existe.'; RETURN; END
 
-    -- Validar propietario
-    IF NOT EXISTS (SELECT 1 FROM Persona WHERE IdPersona = @IdPropietario AND Tipo IN ('Propietario','Ambos'))
-    BEGIN SET @Mensaje = 'ERROR: La persona no existe o no es propietario.'; RETURN; END
+    IF NOT EXISTS (SELECT 1 FROM Contacto WHERE IdContacto = @IdContacto AND EsPropietario = 1)
+    BEGIN SET @Mensaje = 'ERROR: El contacto no existe o no es propietario.'; RETURN; END
 
     BEGIN TRANSACTION;
     BEGIN TRY
         DECLARE @Cuota DECIMAL(10,2) = dbo.fn_CuotaMantenimiento(@AreaM2);
 
-        INSERT INTO Propiedad (Codigo, IdTipoPropiedad, AreaM2, CantResidentes, CuotaMantenimiento)
-        VALUES (@Codigo, @IdTipoPropiedad, @AreaM2, @CantResidentes, @Cuota);
+        INSERT INTO Propiedad (Codigo, IdTipoPropiedad, AreaM2, CuotaMantenimiento)
+        VALUES (@Codigo, @IdTipoPropiedad, @AreaM2, @Cuota);
 
         SET @IdPropiedad = SCOPE_IDENTITY();
 
-        INSERT INTO PropiedadPropietario (IdPropiedad, IdPersona, EsPrincipal)
-        VALUES (@IdPropiedad, @IdPropietario, 1);
+        INSERT INTO PropiedadContacto (IdPropiedad, IdContacto)
+        VALUES (@IdPropiedad, @IdContacto);
 
         COMMIT;
-        SET @Mensaje = 'OK: Propiedad ' + @Codigo + ' creada. Cuota: ₡' + FORMAT(@Cuota,'N0');
+        SET @Mensaje = 'OK: Propiedad ' + @Codigo + ' creada. Cuota: ₡' + FORMAT(@Cuota, 'N0');
     END TRY
     BEGIN CATCH
         ROLLBACK;
@@ -196,10 +192,10 @@ BEGIN
 END;
 GO
 
--- SP: Agregar otro propietario a una propiedad existente
-CREATE OR ALTER PROCEDURE dbo.sp_AgregarPropietario
+-- SP: Agregar contacto a propiedad
+CREATE OR ALTER PROCEDURE dbo.sp_AgregarContactoPropiedad
     @IdPropiedad INT,
-    @IdPersona   INT,
+    @IdContacto  INT,
     @Mensaje     NVARCHAR(200) OUTPUT
 AS
 BEGIN
@@ -208,92 +204,100 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM Propiedad WHERE IdPropiedad = @IdPropiedad)
     BEGIN SET @Mensaje = 'ERROR: La propiedad no existe.'; RETURN; END
 
-    IF NOT EXISTS (SELECT 1 FROM Persona WHERE IdPersona = @IdPersona AND Tipo IN ('Propietario','Ambos'))
-    BEGIN SET @Mensaje = 'ERROR: La persona no existe o no es propietario.'; RETURN; END
+    IF NOT EXISTS (SELECT 1 FROM Contacto WHERE IdContacto = @IdContacto)
+    BEGIN SET @Mensaje = 'ERROR: El contacto no existe.'; RETURN; END
 
-    IF EXISTS (SELECT 1 FROM PropiedadPropietario WHERE IdPropiedad = @IdPropiedad AND IdPersona = @IdPersona)
-    BEGIN SET @Mensaje = 'ERROR: Esa persona ya es propietaria de esta propiedad.'; RETURN; END
+    IF EXISTS (SELECT 1 FROM PropiedadContacto WHERE IdPropiedad = @IdPropiedad AND IdContacto = @IdContacto)
+    BEGIN SET @Mensaje = 'ERROR: Ese contacto ya está en esta propiedad.'; RETURN; END
 
-    INSERT INTO PropiedadPropietario (IdPropiedad, IdPersona, EsPrincipal)
-    VALUES (@IdPropiedad, @IdPersona, 0);
-
-    SET @Mensaje = 'OK: Propietario agregado.';
+    INSERT INTO PropiedadContacto (IdPropiedad, IdContacto) VALUES (@IdPropiedad, @IdContacto);
+    SET @Mensaje = 'OK: Contacto agregado a la propiedad.';
 END;
 GO
 
 -- SP: Reporte de propiedades
--- Filtros opcionales: por código, por dueño
+-- Filtros: por código de propiedad, por dueño
 CREATE OR ALTER PROCEDURE dbo.sp_ReportePropiedades
-    @Codigo        NVARCHAR(20) = NULL,
-    @IdPropietario INT          = NULL
+    @Codigo     NVARCHAR(20) = NULL,
+    @IdContacto INT          = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
     SELECT
-        p.Codigo                                                AS [Código],
-        tp.Descripcion                                          AS [Tipo],
-        p.AreaM2                                                AS [Tamaño m²],
-        FORMAT(p.CuotaMantenimiento, 'N0')                      AS [Cuota ₡],
-        -- Propietarios concatenados con FOR XML PATH
+        p.Codigo                                        AS [Código],
+        tp.Descripcion                                  AS [Tipo],
+        CAST(p.AreaM2 AS NVARCHAR) + ' m²'             AS [Tamaño],
+        '₡' + FORMAT(p.CuotaMantenimiento, 'N0')       AS [Cuota],
         STUFF((
-            SELECT ', ' + pe.Nombre + ' ' + pe.Apellidos
-            FROM PropiedadPropietario pp
-            INNER JOIN Persona pe ON pe.IdPersona = pp.IdPersona
-            WHERE pp.IdPropiedad = p.IdPropiedad
+            SELECT ', ' + c.Nombre +
+                   CASE WHEN c.EsFactura = 1 THEN ' (Factura)' ELSE '' END
+            FROM PropiedadContacto pc
+            INNER JOIN Contacto c ON c.IdContacto = pc.IdContacto
+            WHERE pc.IdPropiedad   = p.IdPropiedad
+              AND c.EsPropietario  = 1
             FOR XML PATH('')
-        ), 1, 2, '')                                            AS [Propietarios]
+        ), 1, 2, '')                                    AS [Propietarios],
+        ISNULL(STUFF((
+            SELECT ', ' + c.Nombre +
+                   CASE WHEN c.PuedeReservar = 1 THEN ' (puede reservar)' ELSE '' END
+            FROM PropiedadContacto pc
+            INNER JOIN Contacto c ON c.IdContacto = pc.IdContacto
+            WHERE pc.IdPropiedad = p.IdPropiedad
+              AND c.EsResidente  = 1
+            FOR XML PATH('')
+        ), 1, 2, ''), '-')                              AS [Residentes]
     FROM Propiedad p
     INNER JOIN TipoPropiedad tp ON tp.IdTipoPropiedad = p.IdTipoPropiedad
-    WHERE (@Codigo        IS NULL OR p.Codigo LIKE '%' + @Codigo + '%')
-      AND (@IdPropietario IS NULL OR EXISTS (
-              SELECT 1 FROM PropiedadPropietario pp
-              WHERE pp.IdPropiedad = p.IdPropiedad
-                AND pp.IdPersona   = @IdPropietario))
+    WHERE (@Codigo     IS NULL OR p.Codigo LIKE '%' + @Codigo + '%')
+      AND (@IdContacto IS NULL OR EXISTS (
+              SELECT 1 FROM PropiedadContacto pc
+              INNER JOIN Contacto c ON c.IdContacto = pc.IdContacto
+              WHERE pc.IdPropiedad  = p.IdPropiedad
+                AND pc.IdContacto   = @IdContacto
+                AND c.EsPropietario = 1))
     ORDER BY p.Codigo;
 END;
 GO
 
--- ============================================================
 -- EJERCICIO 2: RESERVAS
--- ============================================================
-
--- SP: Crear reserva (sin INSERT directo, con validaciones)
+-- SP: Crear reserva
 CREATE OR ALTER PROCEDURE dbo.sp_CrearReserva
-    @IdAreaComun  INT,
-    @IdPropiedad  INT,
-    @IdPersona    INT,
-    @Fecha        DATE,
-    @HoraInicio   TIME,
-    @HoraFin      TIME,
-    @NumPersonas  INT,
-    @IdReserva    INT           OUTPUT,
-    @Mensaje      NVARCHAR(200) OUTPUT
+    @IdAreaComun INT,
+    @IdPropiedad INT,
+    @IdContacto  INT,
+    @Fecha       DATE,
+    @HoraInicio  TIME,
+    @HoraFin     TIME,
+    @NumPersonas INT,
+    @IdReserva   INT           OUTPUT,
+    @Mensaje     NVARCHAR(200) OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validar área
     IF NOT EXISTS (SELECT 1 FROM AreaComun WHERE IdAreaComun = @IdAreaComun)
     BEGIN SET @Mensaje = 'ERROR: El área común no existe.'; RETURN; END
 
-    -- Validar propiedad
     IF NOT EXISTS (SELECT 1 FROM Propiedad WHERE IdPropiedad = @IdPropiedad)
     BEGIN SET @Mensaje = 'ERROR: La propiedad no existe.'; RETURN; END
 
-    -- Persona debe ser propietario o residente
-    IF NOT EXISTS (SELECT 1 FROM Persona WHERE IdPersona = @IdPersona AND Tipo IN ('Propietario','Residente','Ambos'))
-    BEGIN SET @Mensaje = 'ERROR: La persona no tiene permiso para reservar.'; RETURN; END
+    -- Debe pertenecer a la propiedad y tener permiso de reservar
+    IF NOT EXISTS (
+        SELECT 1 FROM PropiedadContacto pc
+        INNER JOIN Contacto c ON c.IdContacto = pc.IdContacto
+        WHERE pc.IdPropiedad  = @IdPropiedad
+          AND pc.IdContacto   = @IdContacto
+          AND c.PuedeReservar = 1
+    )
+    BEGIN SET @Mensaje = 'ERROR: El contacto no tiene permiso para reservar en esta propiedad.'; RETURN; END
 
-    -- Fecha no puede ser en el pasado
     IF @Fecha < CAST(GETDATE() AS DATE)
     BEGIN SET @Mensaje = 'ERROR: La fecha no puede ser en el pasado.'; RETURN; END
 
-    -- Validar horario lógico
     IF @HoraInicio >= @HoraFin
     BEGIN SET @Mensaje = 'ERROR: La hora inicio debe ser menor a la hora fin.'; RETURN; END
 
-    -- Validar dentro del horario del área
     DECLARE @Apertura TIME, @Cierre TIME, @CapMax INT;
     SELECT @Apertura = HoraApertura, @Cierre = HoraCierre, @CapMax = CapacidadMaxima
     FROM AreaComun WHERE IdAreaComun = @IdAreaComun;
@@ -305,14 +309,12 @@ BEGIN
         RETURN;
     END
 
-    -- Validar capacidad
     IF @NumPersonas > @CapMax
     BEGIN
         SET @Mensaje = 'ERROR: Supera la capacidad máxima de ' + CAST(@CapMax AS NVARCHAR) + ' personas.';
         RETURN;
     END
 
-    -- Validar traslape de horario
     IF EXISTS (
         SELECT 1 FROM Reserva
         WHERE IdAreaComun  = @IdAreaComun
@@ -323,16 +325,15 @@ BEGIN
     )
     BEGIN SET @Mensaje = 'ERROR: El área no está disponible en ese horario.'; RETURN; END
 
-    -- Insertar
-    INSERT INTO Reserva (IdAreaComun, IdPropiedad, IdPersona, FechaReserva, HoraInicio, HoraFin, NumPersonas)
-    VALUES (@IdAreaComun, @IdPropiedad, @IdPersona, @Fecha, @HoraInicio, @HoraFin, @NumPersonas);
+    INSERT INTO Reserva (IdAreaComun, IdPropiedad, IdContacto, FechaReserva, HoraInicio, HoraFin, NumPersonas)
+    VALUES (@IdAreaComun, @IdPropiedad, @IdContacto, @Fecha, @HoraInicio, @HoraFin, @NumPersonas);
 
     SET @IdReserva = SCOPE_IDENTITY();
     SET @Mensaje   = 'OK: Reserva creada (Pendiente). ID: ' + CAST(@IdReserva AS NVARCHAR);
 END;
 GO
 
--- SP: Aprobar o rechazar una reserva
+-- SP: Aprobar o rechazar reserva
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarReserva
     @IdReserva INT,
     @Aprobar   BIT,
@@ -358,39 +359,38 @@ END;
 GO
 
 -- SP: Reporte de reservas
--- Filtros opcionales: por propiedad, por persona que reservó
+-- Filtros: por propiedad, por contacto que reservó
 CREATE OR ALTER PROCEDURE dbo.sp_ReporteReservas
     @IdPropiedad INT = NULL,
-    @IdPersona   INT = NULL
+    @IdContacto  INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
     SELECT
-        a.Nombre                                             AS [Área Reservada],
-        CAST(r.FechaReserva AS NVARCHAR(10))                AS [Fecha],
+        a.Nombre                                        AS [Área Reservada],
+        CAST(r.FechaReserva AS NVARCHAR(10))           AS [Fecha],
         FORMAT(r.HoraInicio,'hh\:mm') + ' - ' +
-        FORMAT(r.HoraFin,'hh\:mm')                          AS [Horario],
-        r.Estado                                             AS [Estado],
-        pe.Nombre + ' ' + pe.Apellidos                      AS [Quién Reservó],
-        p.Codigo                                             AS [Propiedad]
+        FORMAT(r.HoraFin,'hh\:mm')                     AS [Horario],
+        r.Estado                                        AS [Estado],
+        c.Nombre                                        AS [Quién Reservó],
+        p.Codigo                                        AS [Propiedad]
     FROM Reserva r
-    INNER JOIN AreaComun a  ON a.IdAreaComun = r.IdAreaComun
-    INNER JOIN Propiedad p  ON p.IdPropiedad = r.IdPropiedad
-    INNER JOIN Persona   pe ON pe.IdPersona  = r.IdPersona
+    INNER JOIN AreaComun a ON a.IdAreaComun = r.IdAreaComun
+    INNER JOIN Propiedad p ON p.IdPropiedad = r.IdPropiedad
+    INNER JOIN Contacto  c ON c.IdContacto  = r.IdContacto
     WHERE (@IdPropiedad IS NULL OR r.IdPropiedad = @IdPropiedad)
-      AND (@IdPersona   IS NULL OR r.IdPersona   = @IdPersona)
+      AND (@IdContacto  IS NULL OR r.IdContacto  = @IdContacto)
     ORDER BY r.FechaReserva DESC;
 END;
 GO
 
--- ============================================================
 -- EJERCICIO 3: CONTROL DE ACCESO
--- ============================================================
 
--- SP: Generar código único de acceso por usuario
+-- SP: Generar código único por contacto
 CREATE OR ALTER PROCEDURE dbo.sp_GenerarCodigoAcceso
-    @IdPersona    INT,
+    @IdContacto   INT,
+    @TipoUsuario  NVARCHAR(20),
     @DiasVigencia INT           = 365,
     @Codigo       NVARCHAR(50)  OUTPUT,
     @Mensaje      NVARCHAR(200) OUTPUT
@@ -398,21 +398,24 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF NOT EXISTS (SELECT 1 FROM Persona WHERE IdPersona = @IdPersona)
-    BEGIN SET @Mensaje = 'ERROR: La persona no existe.'; RETURN; END
+    IF NOT EXISTS (SELECT 1 FROM Contacto WHERE IdContacto = @IdContacto)
+    BEGIN SET @Mensaje = 'ERROR: El contacto no existe.'; RETURN; END
 
-    -- Desactivar código anterior de esa persona
+    IF @TipoUsuario NOT IN ('Propietario','Residente','Invitado')
+    BEGIN SET @Mensaje = 'ERROR: Tipo inválido. Use: Propietario, Residente o Invitado.'; RETURN; END
+
+    -- Desactivar código anterior
     UPDATE CodigoAcceso SET Activo = 0
-    WHERE IdPersona = @IdPersona AND Activo = 1;
+    WHERE IdContacto = @IdContacto AND Activo = 1;
 
-    -- Generar código único: CA-AAAAMM-NNNN-XXXXXX
+    -- Generar código único CA-AAAAMM-NNNN-XXXXXX
     DECLARE @Nuevo NVARCHAR(50);
     DECLARE @Intentos INT = 0;
 
     WHILE @Intentos < 10
     BEGIN
         SET @Nuevo = 'CA-' + FORMAT(GETDATE(),'yyyyMM') + '-' +
-                     RIGHT('0000' + CAST(@IdPersona AS NVARCHAR), 4) + '-' +
+                     RIGHT('0000' + CAST(@IdContacto AS NVARCHAR), 4) + '-' +
                      UPPER(LEFT(REPLACE(CAST(NEWID() AS NVARCHAR(36)), '-', ''), 6));
 
         IF NOT EXISTS (SELECT 1 FROM CodigoAcceso WHERE Codigo = @Nuevo)
@@ -421,85 +424,78 @@ BEGIN
         SET @Intentos += 1;
     END;
 
-    INSERT INTO CodigoAcceso (IdPersona, Codigo, FechaVencimiento)
-    VALUES (@IdPersona, @Nuevo, DATEADD(DAY, @DiasVigencia, GETDATE()));
+    INSERT INTO CodigoAcceso (IdContacto, TipoUsuario, Codigo, FechaVencimiento)
+    VALUES (@IdContacto, @TipoUsuario, @Nuevo, DATEADD(DAY, @DiasVigencia, GETDATE()));
 
     SET @Codigo  = @Nuevo;
-    SET @Mensaje = 'OK: Código generado → ' + @Nuevo;
+    SET @Mensaje = 'OK: Código → ' + @Nuevo + ' | Tipo: ' + @TipoUsuario +
+                   ' | Vence: ' + CONVERT(NVARCHAR(10), DATEADD(DAY, @DiasVigencia, GETDATE()), 23);
 END;
 GO
 
--- Trigger: valida el código QR antes de registrar la visita
-CREATE OR ALTER TRIGGER trg_ValidarAcceso
-ON RegistroVisita
+-- Trigger: valida código antes de registrar ingreso
+CREATE OR ALTER TRIGGER trg_ValidarCodigoAcceso
+ON RegistroAcceso
 INSTEAD OF INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Si viene con código QR, verificar que sea válido
     IF EXISTS (
         SELECT 1 FROM inserted i
-        WHERE i.IdCodigoAcceso IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM CodigoAcceso ca
-              WHERE ca.IdCodigoAcceso   = i.IdCodigoAcceso
-                AND ca.Activo           = 1
-                AND ca.FechaVencimiento >= GETDATE()
-          )
+        WHERE NOT EXISTS (
+            SELECT 1 FROM CodigoAcceso ca
+            WHERE ca.IdCodigoAcceso   = i.IdCodigoAcceso
+              AND ca.Activo           = 1
+              AND ca.FechaVencimiento >= GETDATE()
+        )
     )
     BEGIN
-        RAISERROR('Acceso denegado: código QR inválido o vencido.', 16, 1);
+        RAISERROR('Acceso denegado: código inválido o vencido.', 16, 1);
         RETURN;
     END;
 
-    -- Si todo está bien, insertar
-    INSERT INTO RegistroVisita (NombreVisitante, CedulaVisitante, IdPropiedad, IdCodigoAcceso, FechaEntrada)
-    SELECT NombreVisitante, CedulaVisitante, IdPropiedad, IdCodigoAcceso, FechaEntrada
+    INSERT INTO RegistroAcceso (IdCodigoAcceso, IdPropiedad, NombreVisitante, FechaIngreso)
+    SELECT IdCodigoAcceso, IdPropiedad, NombreVisitante, FechaIngreso
     FROM inserted;
 END;
 GO
 
--- SP: Registrar entrada de visita (sin INSERT directo)
-CREATE OR ALTER PROCEDURE dbo.sp_RegistrarEntrada
-    @NombreVisitante NVARCHAR(150),
-    @CedulaVisitante NVARCHAR(20)  = NULL,
-    @IdPropiedad     INT,
-    @CodigoQR        NVARCHAR(50)  = NULL,
-    @IdVisita        INT           OUTPUT,
+-- SP: Registrar ingreso
+CREATE OR ALTER PROCEDURE dbo.sp_RegistrarIngreso
+    @CodigoQR        NVARCHAR(50),
+    @IdPropiedad     INT           = NULL,
+    @NombreVisitante NVARCHAR(150) = NULL,
+    @IdAcceso        INT           OUTPUT,
     @Mensaje         NVARCHAR(200) OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF NULLIF(LTRIM(@NombreVisitante), '') IS NULL
-    BEGIN SET @Mensaje = 'ERROR: El nombre del visitante es obligatorio.'; RETURN; END
+    DECLARE @IdCodigo INT, @Nombre NVARCHAR(150), @Tipo NVARCHAR(20);
 
-    IF NOT EXISTS (SELECT 1 FROM Propiedad WHERE IdPropiedad = @IdPropiedad)
-    BEGIN SET @Mensaje = 'ERROR: La propiedad no existe.'; RETURN; END
+    SELECT @IdCodigo = ca.IdCodigoAcceso,
+           @Nombre   = c.Nombre,
+           @Tipo     = ca.TipoUsuario
+    FROM CodigoAcceso ca
+    INNER JOIN Contacto c ON c.IdContacto = ca.IdContacto
+    WHERE ca.Codigo = @CodigoQR AND ca.Activo = 1 AND ca.FechaVencimiento >= GETDATE();
 
-    -- Buscar el ID del código si se presentó QR
-    DECLARE @IdCodigo INT = NULL;
-    IF @CodigoQR IS NOT NULL
-    BEGIN
-        SELECT @IdCodigo = IdCodigoAcceso
-        FROM CodigoAcceso
-        WHERE Codigo = @CodigoQR AND Activo = 1 AND FechaVencimiento >= GETDATE();
+    IF @IdCodigo IS NULL
+    BEGIN SET @Mensaje = 'ERROR: Código inválido o vencido. Acceso denegado.'; RETURN; END
 
-        IF @IdCodigo IS NULL
-        BEGIN SET @Mensaje = 'ERROR: Código QR inválido o vencido.'; RETURN; END
-    END;
+    IF @NombreVisitante IS NULL SET @NombreVisitante = @Nombre;
 
     BEGIN TRY
-        INSERT INTO RegistroVisita (NombreVisitante, CedulaVisitante, IdPropiedad, IdCodigoAcceso)
-        VALUES (@NombreVisitante, @CedulaVisitante, @IdPropiedad, @IdCodigo);
+        INSERT INTO RegistroAcceso (IdCodigoAcceso, IdPropiedad, NombreVisitante)
+        VALUES (@IdCodigo, @IdPropiedad, @NombreVisitante);
 
-        SET @IdVisita = SCOPE_IDENTITY();
-        SET @Mensaje  = 'OK: Entrada registrada. ID: ' + CAST(@IdVisita AS NVARCHAR) +
-                        CASE WHEN @CodigoQR IS NOT NULL THEN ' (con QR).' ELSE ' (sin QR).' END;
+        SET @IdAcceso = SCOPE_IDENTITY();
+        SET @Mensaje  = 'OK: Ingreso registrado. ID: ' + CAST(@IdAcceso AS NVARCHAR) +
+                        ' | ' + @Tipo + ': ' + @Nombre;
     END TRY
     BEGIN CATCH
-        SET @IdVisita = NULL;
+        SET @IdAcceso = NULL;
         SET @Mensaje  = 'ERROR: ' + ERROR_MESSAGE();
     END CATCH
 END;
@@ -507,45 +503,47 @@ GO
 
 -- SP: Registrar salida
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarSalida
-    @IdVisita INT,
+    @IdAcceso INT,
     @Mensaje  NVARCHAR(200) OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF NOT EXISTS (SELECT 1 FROM RegistroVisita WHERE IdVisita = @IdVisita)
-    BEGIN SET @Mensaje = 'ERROR: La visita no existe.'; RETURN; END
+    IF NOT EXISTS (SELECT 1 FROM RegistroAcceso WHERE IdAcceso = @IdAcceso)
+    BEGIN SET @Mensaje = 'ERROR: El registro no existe.'; RETURN; END
 
-    IF EXISTS (SELECT 1 FROM RegistroVisita WHERE IdVisita = @IdVisita AND FechaSalida IS NOT NULL)
+    IF EXISTS (SELECT 1 FROM RegistroAcceso WHERE IdAcceso = @IdAcceso AND FechaSalida IS NOT NULL)
     BEGIN SET @Mensaje = 'ERROR: La salida ya fue registrada.'; RETURN; END
 
-    UPDATE RegistroVisita SET FechaSalida = GETDATE() WHERE IdVisita = @IdVisita;
+    UPDATE RegistroAcceso SET FechaSalida = GETDATE() WHERE IdAcceso = @IdAcceso;
     SET @Mensaje = 'OK: Salida registrada.';
 END;
 GO
 
--- SP: Historial de visitas con filtro por propiedad
-CREATE OR ALTER PROCEDURE dbo.sp_HistorialVisitas
-    @IdPropiedad INT = NULL
+-- SP: Reporte de ingresos
+-- Filtros: por contacto, por fecha de ingreso
+CREATE OR ALTER PROCEDURE dbo.sp_ReporteIngresos
+    @IdContacto   INT  = NULL,
+    @FechaIngreso DATE = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
     SELECT
-        rv.IdVisita,
-        rv.NombreVisitante,
-        ISNULL(rv.CedulaVisitante, '-')                          AS [Cédula],
-        p.Codigo                                                  AS [Propiedad],
-        CONVERT(NVARCHAR(16), rv.FechaEntrada, 120)              AS [Entrada],
-        ISNULL(CONVERT(NVARCHAR(16), rv.FechaSalida, 120),
-               'Aún dentro')                                      AS [Salida],
-        CASE WHEN rv.IdCodigoAcceso IS NOT NULL
-             THEN 'Con QR' ELSE 'Sin QR'
-        END                                                       AS [Modo]
-    FROM RegistroVisita rv
-    INNER JOIN Propiedad p ON p.IdPropiedad = rv.IdPropiedad
-    WHERE (@IdPropiedad IS NULL OR rv.IdPropiedad = @IdPropiedad)
-    ORDER BY rv.FechaEntrada DESC;
+        c.Nombre                                                 AS [Contacto],
+        ca.TipoUsuario                                          AS [Tipo],
+        ra.NombreVisitante                                      AS [Visitante],
+        ISNULL(p.Codigo, '-')                                   AS [Propiedad],
+        CONVERT(NVARCHAR(16), ra.FechaIngreso, 120)             AS [Fecha Ingreso],
+        ISNULL(CONVERT(NVARCHAR(16), ra.FechaSalida, 120),
+               'Aún dentro')                                     AS [Fecha Salida]
+    FROM RegistroAcceso ra
+    INNER JOIN CodigoAcceso ca ON ca.IdCodigoAcceso = ra.IdCodigoAcceso
+    INNER JOIN Contacto     c  ON c.IdContacto      = ca.IdContacto
+    LEFT  JOIN Propiedad    p  ON p.IdPropiedad     = ra.IdPropiedad
+    WHERE (@IdContacto   IS NULL OR ca.IdContacto             = @IdContacto)
+      AND (@FechaIngreso IS NULL OR CAST(ra.FechaIngreso AS DATE) = @FechaIngreso)
+    ORDER BY ra.FechaIngreso DESC;
 END;
 GO
 
@@ -554,68 +552,58 @@ GO
 -- ============================================================
 
 PRINT '=== EJERCICIO 1: PROPIEDADES ===';
+EXEC dbo.sp_ReportePropiedades;
+
+PRINT '-- Filtrar por código A05B';
+EXEC dbo.sp_ReportePropiedades @Codigo = 'A05B';
+
+PRINT '-- Filtrar por dueño Juan Lopez (ID=1)';
+EXEC dbo.sp_ReportePropiedades @IdContacto = 1;
 
 DECLARE @Id INT, @Msg NVARCHAR(200);
-
--- Crear propiedades nuevas
-EXEC dbo.sp_CrearPropiedad 'C-301', 1, 110, 2, 1, @Id OUTPUT, @Msg OUTPUT; PRINT @Msg;
-EXEC dbo.sp_AgregarPropietario @Id, 2, @Msg OUTPUT;                         PRINT @Msg;
-
--- Errores esperados
-EXEC dbo.sp_CrearPropiedad 'A-101', 1, 80, 0, 1, @Id OUTPUT, @Msg OUTPUT;  PRINT @Msg; -- código duplicado
-EXEC dbo.sp_CrearPropiedad 'X-999', 1, -5, 0, 1, @Id OUTPUT, @Msg OUTPUT;  PRINT @Msg; -- área inválida
+EXEC dbo.sp_CrearPropiedad 'C-301', 1, 150, 1, @Id OUTPUT, @Msg OUTPUT; PRINT @Msg;
+EXEC dbo.sp_CrearPropiedad 'A05B',  1, 100, 1, @Id OUTPUT, @Msg OUTPUT; PRINT @Msg; -- duplicado
+EXEC dbo.sp_CrearPropiedad 'X-999', 1,  -5, 1, @Id OUTPUT, @Msg OUTPUT; PRINT @Msg; -- área inválida
 GO
 
-PRINT '-- Reporte completo';          EXEC dbo.sp_ReportePropiedades;
-PRINT '-- Filtrar por código A-101';  EXEC dbo.sp_ReportePropiedades @Codigo = 'A-101';
-PRINT '-- Filtrar por dueño ID=1';    EXEC dbo.sp_ReportePropiedades @IdPropietario = 1;
-GO
-
+PRINT '';
 PRINT '=== EJERCICIO 2: RESERVAS ===';
+EXEC dbo.sp_ReporteReservas;
+
+PRINT '-- Filtrar por propiedad 1 (A05B)';
+EXEC dbo.sp_ReporteReservas @IdPropiedad = 1;
+
+PRINT '-- Filtrar por Luis Lopez (ID=3)';
+EXEC dbo.sp_ReporteReservas @IdContacto = 3;
 
 DECLARE @IdRes INT, @Msg NVARCHAR(200);
-
--- Reserva válida
-EXEC dbo.sp_CrearReserva 1, 1, 1, '2026-07-15', '10:00', '14:00', 20, @IdRes OUTPUT, @Msg OUTPUT; PRINT @Msg;
--- Traslape de horario
-EXEC dbo.sp_CrearReserva 1, 2, 2, '2026-07-15', '11:00', '13:00', 10, @IdRes OUTPUT, @Msg OUTPUT; PRINT @Msg;
--- Excede capacidad (cancha tenis cap=4)
-EXEC dbo.sp_CrearReserva 3, 1, 1, '2026-07-20', '08:00', '10:00', 10, @IdRes OUTPUT, @Msg OUTPUT; PRINT @Msg;
-
--- Aprobar reserva 1
-DECLARE @R1 INT = 1;
-EXEC dbo.sp_GestionarReserva @R1, 1, NULL, @Msg OUTPUT; PRINT @Msg;
+EXEC dbo.sp_CrearReserva 4, 1, 4, '2026-07-20', '09:00', '12:00', 5, @IdRes OUTPUT, @Msg OUTPUT; PRINT @Msg;
+EXEC dbo.sp_CrearReserva 1, 1, 1, '2026-07-25', '10:00', '14:00', 5, @IdRes OUTPUT, @Msg OUTPUT; PRINT @Msg; -- sin permiso
 GO
 
-PRINT '-- Reporte completo';           EXEC dbo.sp_ReporteReservas;
-PRINT '-- Filtrar por propiedad 1';    EXEC dbo.sp_ReporteReservas @IdPropiedad = 1;
-PRINT '-- Filtrar por persona 1';      EXEC dbo.sp_ReporteReservas @IdPersona = 1;
-GO
-
+PRINT '';
 PRINT '=== EJERCICIO 3: CONTROL DE ACCESO ===';
 
 DECLARE @Cod NVARCHAR(50), @Msg NVARCHAR(200);
-
--- Generar códigos
-EXEC dbo.sp_GenerarCodigoAcceso 1, 365, @Cod OUTPUT, @Msg OUTPUT; PRINT @Msg; PRINT 'Código: ' + @Cod;
-EXEC dbo.sp_GenerarCodigoAcceso 4, 180, @Cod OUTPUT, @Msg OUTPUT; PRINT @Msg;
--- Persona inexistente
-EXEC dbo.sp_GenerarCodigoAcceso 999, 365, @Cod OUTPUT, @Msg OUTPUT; PRINT @Msg;
+EXEC dbo.sp_GenerarCodigoAcceso 3, 'Residente',   365, @Cod OUTPUT, @Msg OUTPUT; PRINT @Msg;
+EXEC dbo.sp_GenerarCodigoAcceso 1, 'Propietario', 365, @Cod OUTPUT, @Msg OUTPUT; PRINT @Msg;
+EXEC dbo.sp_GenerarCodigoAcceso 4, 'Invitado',     30, @Cod OUTPUT, @Msg OUTPUT; PRINT @Msg;
 GO
 
-DECLARE @CodQR NVARCHAR(50), @IdVis INT, @Msg NVARCHAR(200);
-SELECT TOP 1 @CodQR = Codigo FROM CodigoAcceso WHERE IdPersona = 1 AND Activo = 1;
+DECLARE @CodQR NVARCHAR(50), @IdAcc INT, @Msg NVARCHAR(200);
+SELECT TOP 1 @CodQR = Codigo FROM CodigoAcceso WHERE IdContacto = 3 AND Activo = 1;
 
--- Entrada con QR válido
-EXEC dbo.sp_RegistrarEntrada 'Pedro Ramírez', '205670001', 1, @CodQR, @IdVis OUTPUT, @Msg OUTPUT; PRINT @Msg;
--- Entrada sin QR
-EXEC dbo.sp_RegistrarEntrada 'Ana Torres', NULL, 1, NULL, @IdVis OUTPUT, @Msg OUTPUT; PRINT @Msg;
--- QR falso
-EXEC dbo.sp_RegistrarEntrada 'Intruso', NULL, 1, 'CODIGO-FALSO', @IdVis OUTPUT, @Msg OUTPUT; PRINT @Msg;
--- Registrar salida
-EXEC dbo.sp_RegistrarSalida 1, @Msg OUTPUT; PRINT @Msg;
+EXEC dbo.sp_RegistrarIngreso @CodQR, 1, NULL, @IdAcc OUTPUT, @Msg OUTPUT;     PRINT @Msg;
+EXEC dbo.sp_RegistrarSalida  @IdAcc, @Msg OUTPUT;                              PRINT @Msg;
+EXEC dbo.sp_RegistrarIngreso 'CODIGO-FALSO', 1, NULL, @IdAcc OUTPUT, @Msg OUTPUT; PRINT @Msg;
 GO
 
-PRINT '-- Historial de visitas';
-EXEC dbo.sp_HistorialVisitas;
+PRINT '-- Reporte de ingresos completo';
+EXEC dbo.sp_ReporteIngresos;
+
+PRINT '-- Filtrar por Luis Lopez (ID=3)';
+EXEC dbo.sp_ReporteIngresos @IdContacto = 3;
+
+PRINT '-- Filtrar por fecha de hoy';
+EXEC dbo.sp_ReporteIngresos @FechaIngreso = '2026-06-22';
 GO
